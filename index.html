@@ -191,18 +191,18 @@
     align-items:flex-end;
   }
   .fab{
-    width:50px;height:50px;
+    width:66px;height:66px;
     border-radius:50%;
     border:1px solid var(--line);
     background:var(--surface);
     box-shadow:var(--shadow);
     display:flex;align-items:center;justify-content:center;
-    font-size:20px;
+    font-size:27px;
     color:var(--ink);
     cursor:pointer;
   }
   .fab.on{background:var(--accent);border-color:var(--accent);color:#fbfaf3}
-  .fab svg{width:22px;height:22px}
+  .fab svg{width:32px;height:32px}
 
   .zoom-col{
     position:absolute;
@@ -235,29 +235,27 @@
     background:var(--surface);
     border:1px solid var(--line);
     box-shadow:var(--shadow);
-    border-radius:12px;
-    padding:8px;
+    border-radius:16px;
+    padding:14px;
     display:none;
-    gap:6px;
+    gap:12px;
     align-items:center;
     flex-wrap:wrap;
-    max-width:min(92vw,520px);
+    max-width:min(94vw,560px);
   }
   .toolbar.show{display:flex}
   .toolbar .opt{
     border:1px solid var(--line);
     background:var(--surface-2);
-    border-radius:8px;
-    padding:6px 10px;
-    font-size:12.5px;
+    border-radius:14px;
+    padding:16px 26px;
+    font-size:19px;
     font-weight:600;
     cursor:pointer;
     color:var(--ink);
-    display:flex;align-items:center;gap:6px;
+    display:flex;align-items:center;gap:10px;
   }
   .toolbar .opt.active{background:var(--accent);border-color:var(--accent);color:#fff}
-  .swatch{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);cursor:pointer}
-  .swatch.active{border-color:var(--ink)}
   .toolbar .sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
   .toolbar .close-tb{
     border:none;background:transparent;color:var(--ink-dim);font-size:18px;cursor:pointer;padding:2px 6px;
@@ -265,7 +263,7 @@
 
   .pin-picker{
     position:absolute;
-    right:70px;
+    right:88px;
     bottom:16px;
     z-index:21;
     background:var(--surface);
@@ -379,7 +377,7 @@
 
   @media (max-width:480px){
     h1{font-size:19px}
-    .fab{width:46px;height:46px}
+    .fab{width:58px;height:58px}
     #sheet{padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
   }
 </style>
@@ -406,11 +404,6 @@
   <div class="toolbar" id="drawToolbar">
     <button class="opt" id="optArrow" data-mode="draw-arrow">↗ Pijl</button>
     <button class="opt" id="optDot" data-mode="draw-dot">● Bolletje</button>
-    <div class="sep"></div>
-    <span class="swatch" style="background:#a33d2f" data-color="#a33d2f"></span>
-    <span class="swatch" style="background:#3c5a3f" data-color="#3c5a3f"></span>
-    <span class="swatch" style="background:#2b5fa3" data-color="#2b5fa3"></span>
-    <span class="swatch" style="background:#c98a1c" data-color="#c98a1c"></span>
     <div class="sep"></div>
     <button class="opt" id="closeDraw">Klaar</button>
   </div>
@@ -496,7 +489,7 @@ const PIN_TYPES = {
 const state = {
   scale:1, tx:0, ty:0, minScale:1, maxScale:8,
   mode:'view', // view | pin-<type> | draw-arrow | draw-dot
-  drawColor:'#a33d2f',
+  drawColor:'#dc2626',
   selectedFieldId:null,
   fieldsData:{},
   pins:[], drawings:[],
@@ -855,7 +848,7 @@ function renderDrawings(){
       const [ [x,y] ] = d.points;
       const c = document.createElementNS(svgns,'circle');
       c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r',9);
-      c.setAttribute('fill',d.color||'#a33d2f'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width',2);
+      c.setAttribute('fill',d.color||'#dc2626'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width',2);
       c.setAttribute('vector-effect','non-scaling-stroke');
       c.setAttribute('class','drawing-hit');
       c.style.cursor='pointer';
@@ -868,7 +861,7 @@ function renderDrawings(){
       grp.style.cursor='pointer';
       const line = document.createElementNS(svgns,'line');
       line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
-      line.setAttribute('stroke', d.color||'#a33d2f'); line.setAttribute('stroke-width',4);
+      line.setAttribute('stroke', d.color||'#dc2626'); line.setAttribute('stroke-width',4);
       line.setAttribute('stroke-linecap','round'); line.setAttribute('vector-effect','non-scaling-stroke');
       grp.appendChild(line);
       const ang = Math.atan2(y2-y1,x2-x1);
@@ -877,7 +870,7 @@ function renderDrawings(){
       const hx2 = x2 - headLen*Math.cos(ang+0.4), hy2 = y2 - headLen*Math.sin(ang+0.4);
       const head = document.createElementNS(svgns,'polygon');
       head.setAttribute('points', x2+','+y2+' '+hx1+','+hy1+' '+hx2+','+hy2);
-      head.setAttribute('fill', d.color||'#a33d2f');
+      head.setAttribute('fill', d.color||'#dc2626');
       grp.appendChild(head);
       const hit = document.createElementNS(svgns,'line');
       hit.setAttribute('x1',x1); hit.setAttribute('y1',y1); hit.setAttribute('x2',x2); hit.setAttribute('y2',y2);
@@ -990,17 +983,9 @@ $('#fabDraw').onclick = ()=>{
 $('#optArrow').onclick = ()=>{ setMode('draw-arrow'); syncDrawToolbarUI(); };
 $('#optDot').onclick = ()=>{ setMode('draw-dot'); syncDrawToolbarUI(); };
 $('#closeDraw').onclick = ()=>{ setMode('view'); $('#drawToolbar').classList.remove('show'); };
-document.querySelectorAll('.swatch').forEach(sw=>{
-  sw.addEventListener('click', ()=>{
-    state.drawColor = sw.dataset.color;
-    document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));
-    sw.classList.add('active');
-  });
-});
 function syncDrawToolbarUI(){
   $('#optArrow').classList.toggle('active', state.mode==='draw-arrow');
   $('#optDot').classList.toggle('active', state.mode==='draw-dot');
-  document.querySelectorAll('.swatch').forEach(s=> s.classList.toggle('active', s.dataset.color===state.drawColor));
 }
 
 function setMode(m){
@@ -1056,11 +1041,11 @@ function updateMeMarker(lat,lon,accM){
   const accPx = Math.max(6, (accM||15)/mpp);
   const acc = document.createElementNS(svgns,'circle');
   acc.setAttribute('cx',p.x); acc.setAttribute('cy',p.y); acc.setAttribute('r',accPx);
-  acc.setAttribute('fill','rgba(43,111,163,.18)'); acc.setAttribute('stroke','rgba(43,111,163,.35)');
+  acc.setAttribute('fill','rgba(26,115,232,.18)'); acc.setAttribute('stroke','rgba(26,115,232,.4)');
   g.appendChild(acc);
   const dot = document.createElementNS(svgns,'circle');
-  dot.setAttribute('cx',p.x); dot.setAttribute('cy',p.y); dot.setAttribute('r',9);
-  dot.setAttribute('fill','#2b6fa3'); dot.setAttribute('stroke','#fff'); dot.setAttribute('stroke-width',3);
+  dot.setAttribute('cx',p.x); dot.setAttribute('cy',p.y); dot.setAttribute('r',11);
+  dot.setAttribute('fill','#1a73e8'); dot.setAttribute('stroke','#fff'); dot.setAttribute('stroke-width',3.5);
   dot.setAttribute('vector-effect','non-scaling-stroke');
   g.appendChild(dot);
 }
