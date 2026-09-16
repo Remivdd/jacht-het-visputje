@@ -511,7 +511,7 @@
     <div class="sheet-note" id="sheetNote"></div>
     <div class="sheet-actions">
       <button class="action-btn" id="sheetDrawBtn">&#9998; Tekenen</button>
-      <button class="action-btn" id="sheetAnimalsBtn">&#128007; Dieren</button>
+      <button class="action-btn" id="sheetAnimalsBtn">&#128007; Telling</button>
     </div>
     <div class="counters" id="countersSection" hidden>
       <div class="counter-row">
@@ -674,7 +674,7 @@ function renderWorld(){
     p.setAttribute('class','field-shape');
     p.dataset.id = f.id;
     if(state.fieldsData[f.id] && hasCounts(state.fieldsData[f.id])) p.classList.add('has-data');
-    p.addEventListener('click', (ev)=>{ ev.stopPropagation(); onFieldTap(f.id); });
+    p.addEventListener('click', (ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); onFieldTap(f.id); });
     fieldsG.appendChild(p);
   });
   svg.appendChild(fieldsG);
@@ -863,9 +863,11 @@ viewport.addEventListener('wheel', (e)=>{
 
 function onMapTap(e){
   if(dragMoved) return;
-  if(e.target.closest('.field-shape')) return;
-  if(e.target.closest('.pin-hit')) return;
-  if(e.target.closest('.drawing-hit')) return;
+  if(state.mode==='view'){
+    if(e.target.closest('.field-shape')) return;
+    if(e.target.closest('.pin-hit')) return;
+    if(e.target.closest('.drawing-hit')) return;
+  }
   e.stopPropagation();
   const w = screenToWorld(e.clientX, e.clientY);
   hidePopover();
@@ -971,7 +973,7 @@ function renderPins(){
     use.setAttribute('fill','#fff'); use.setAttribute('stroke','#fff'); use.setAttribute('stroke-width',0.3);
     grp.appendChild(use);
     grp.style.cursor='pointer';
-    grp.addEventListener('click',(ev)=>{ ev.stopPropagation(); showPinPopover(p, ev.clientX, ev.clientY); });
+    grp.addEventListener('click',(ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); showPinPopover(p, ev.clientX, ev.clientY); });
     g.appendChild(grp);
   });
 }
@@ -990,7 +992,7 @@ function renderDrawings(){
       c.setAttribute('vector-effect','non-scaling-stroke');
       c.setAttribute('class','drawing-hit');
       c.style.cursor='pointer';
-      c.addEventListener('click',(ev)=>{ ev.stopPropagation(); showDrawingPopover(d, ev.clientX, ev.clientY); });
+      c.addEventListener('click',(ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); showDrawingPopover(d, ev.clientX, ev.clientY); });
       g.appendChild(c);
     } else if(d.type==='arrow'){
       const [[x1,y1],[x2,y2]] = d.points;
@@ -1015,7 +1017,7 @@ function renderDrawings(){
       hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width',22);
       hit.setAttribute('vector-effect','non-scaling-stroke');
       grp.appendChild(hit);
-      grp.addEventListener('click',(ev)=>{ ev.stopPropagation(); showDrawingPopover(d, ev.clientX, ev.clientY); });
+      grp.addEventListener('click',(ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); showDrawingPopover(d, ev.clientX, ev.clientY); });
       g.appendChild(grp);
     }
   });
@@ -1122,7 +1124,7 @@ function openSheet(id){
   fillSheetFromData(id);
   $('#countersSection').hidden = true;
   $('#sheetAnimalsBtn').classList.remove('active');
-  $('#sheetAnimalsBtn').innerHTML = '&#128007; Dieren';
+  $('#sheetAnimalsBtn').innerHTML = '&#128007; Telling';
   $('#sheet').classList.add('show');
 }
 function fillSheetFromData(id){
@@ -1157,7 +1159,7 @@ $('#sheetAnimalsBtn').onclick = ()=>{
   const sec = $('#countersSection');
   sec.hidden = !sec.hidden;
   $('#sheetAnimalsBtn').classList.toggle('active', !sec.hidden);
-  $('#sheetAnimalsBtn').innerHTML = sec.hidden ? '&#128007; Dieren' : '&#128007; Dieren verbergen';
+  $('#sheetAnimalsBtn').innerHTML = sec.hidden ? '&#128007; Telling' : '&#128007; Telling verbergen';
 };
 $('#sheetDrawBtn').onclick = ()=>{
   closeSheet();
