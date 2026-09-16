@@ -406,6 +406,7 @@
   }
   .action-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
   #countersSection{margin-top:12px}
+  #countersSection[hidden]{display:none}
 
   /* legend / info panel */
   #infoToggle{
@@ -1156,10 +1157,8 @@ function closeSheet(){
 }
 $('#sheetClose').onclick = closeSheet;
 $('#sheetAnimalsBtn').onclick = ()=>{
-  const sec = $('#countersSection');
-  sec.hidden = !sec.hidden;
-  $('#sheetAnimalsBtn').classList.toggle('active', !sec.hidden);
-  $('#sheetAnimalsBtn').innerHTML = sec.hidden ? '&#128007; Telling' : '&#128007; Telling verbergen';
+  $('#countersSection').hidden = false;
+  $('#sheetAnimalsBtn').classList.add('active');
 };
 $('#sheetDrawBtn').onclick = ()=>{
   closeSheet();
