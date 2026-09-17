@@ -298,6 +298,13 @@
   }
   .toolbar .opt.active{background:var(--accent);border-color:var(--accent);color:#fff}
   .toolbar .sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+  .toolbar .swatch{
+    width:34px;height:34px;border-radius:50%;
+    border:3px solid var(--line);
+    cursor:pointer;
+    flex:0 0 auto;
+  }
+  .toolbar .swatch.active{border-color:var(--ink); box-shadow:0 0 0 2px var(--surface), 0 0 0 4px var(--ink)}
   .toolbar .close-tb{
     border:none;background:transparent;color:var(--ink-dim);font-size:18px;cursor:pointer;padding:2px 6px;
   }
@@ -469,6 +476,11 @@
   <div class="toolbar" id="drawToolbar">
     <button class="opt" id="optArrow" data-mode="draw-arrow">↗ Pijl</button>
     <button class="opt" id="optDot" data-mode="draw-dot">● Bolletje</button>
+    <div class="sep"></div>
+    <span class="swatch" data-color="#dc2626" style="background:#dc2626"></span>
+    <span class="swatch" data-color="#2563eb" style="background:#2563eb"></span>
+    <span class="swatch" data-color="#16a34a" style="background:#16a34a"></span>
+    <span class="swatch" data-color="#eab308" style="background:#eab308"></span>
     <div class="sep"></div>
     <button class="opt" id="closeDraw">Klaar</button>
   </div>
@@ -1240,9 +1252,18 @@ $('#fabDraw').onclick = ()=>{
 $('#optArrow').onclick = ()=>{ cancelArrowPoint(); setMode('draw-arrow'); syncDrawToolbarUI(); };
 $('#optDot').onclick = ()=>{ cancelArrowPoint(); setMode('draw-dot'); syncDrawToolbarUI(); };
 $('#closeDraw').onclick = ()=>{ cancelArrowPoint(); setMode('view'); $('#drawToolbar').classList.remove('show'); };
+document.querySelectorAll('.toolbar .swatch').forEach(sw=>{
+  sw.addEventListener('click', ()=>{
+    state.drawColor = sw.dataset.color;
+    syncDrawToolbarUI();
+  });
+});
 function syncDrawToolbarUI(){
   $('#optArrow').classList.toggle('active', state.mode==='draw-arrow');
   $('#optDot').classList.toggle('active', state.mode==='draw-dot');
+  document.querySelectorAll('.toolbar .swatch').forEach(sw=>{
+    sw.classList.toggle('active', sw.dataset.color===state.drawColor);
+  });
 }
 
 function setMode(m){
