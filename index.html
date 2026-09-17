@@ -170,6 +170,7 @@
     stroke:#fff;
     stroke-width:2.5;
     vector-effect:non-scaling-stroke;
+    pointer-events:none;
   }
   .water-body{
     fill:rgba(43,111,163,.35);
@@ -658,7 +659,6 @@ function renderWorld(){
     p.setAttribute('points', w.pts);
     p.setAttribute('class','water-body');
     p.dataset.id = w.id;
-    p.addEventListener('click',(ev)=>{ ev.stopPropagation(); onWaterTap(w.id, ev.clientX, ev.clientY); });
     waterG.appendChild(p);
   });
   svg.appendChild(waterG);
@@ -683,7 +683,6 @@ function renderWorld(){
     p.setAttribute('class','field-shape');
     p.dataset.id = f.id;
     if(state.fieldsData[f.id] && hasCounts(state.fieldsData[f.id])) p.classList.add('has-data');
-    p.addEventListener('click', (ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); onFieldTap(f.id); });
     fieldsG.appendChild(p);
   });
   svg.appendChild(fieldsG);
@@ -691,9 +690,8 @@ function renderWorld(){
   const badgesG = document.createElementNS(svgns,'g'); badgesG.id='badgesG'; svg.appendChild(badgesG);
   const pinsG = document.createElementNS(svgns,'g'); pinsG.id='pinsG'; svg.appendChild(pinsG);
   const drawG = document.createElementNS(svgns,'g'); drawG.id='drawG'; svg.appendChild(drawG);
-  const meG = document.createElementNS(svgns,'g'); meG.id='meG'; svg.appendChild(meG);
+  const meG = document.createElementNS(svgns,'g'); meG.id='meG'; meG.style.pointerEvents='none'; svg.appendChild(meG);
 
-  svg.addEventListener('click', onMapTap);
   world.appendChild(svg);
 }
 
@@ -851,6 +849,7 @@ viewport.addEventListener('pointermove', (e)=>{
 });
 
 function endPointer(e){
+  const wasSingle = pointers.size===1;
   pointers.delete(e.pointerId);
   lastDist=null;
   viewport.classList.remove('grabbing');
@@ -858,10 +857,19 @@ function endPointer(e){
     const w = screenToWorld(e.clientX,e.clientY);
     finishArrow(state.arrowStart, w);
     state.arrowStart = null;
+    return;
+  }
+  if(e.type==='pointerup' && wasSingle && pointers.size===0 && !dragMoved){
+    handleTap(e.clientX, e.clientY);
   }
 }
 viewport.addEventListener('pointerup', endPointer);
 viewport.addEventListener('pointercancel', endPointer);
+/* The browser still synthesizes a 'click' after pointerup even though we handle taps
+   ourselves above; because of setPointerCapture it can land back on viewport and reach
+   the document-level "click outside closes popover" listener, instantly closing whatever
+   handleTap just opened. Swallow it here — nothing else listens for 'click' on viewport. */
+viewport.addEventListener('click', (e)=> e.stopPropagation());
 
 viewport.addEventListener('wheel', (e)=>{
   e.preventDefault();
@@ -870,27 +878,45 @@ viewport.addEventListener('wheel', (e)=>{
   clampScaleAround(state.scale*factor, e.clientX-r.left, e.clientY-r.top);
 },{passive:false});
 
-function onMapTap(e){
-  if(dragMoved) return;
-  if(state.mode==='view'){
-    if(e.target.closest('.field-shape')) return;
-    if(e.target.closest('.pin-hit')) return;
-    if(e.target.closest('.drawing-hit')) return;
-  }
-  e.stopPropagation();
-  const w = screenToWorld(e.clientX, e.clientY);
+/* Tap routing is resolved here (rather than via a native 'click' listener) because
+   viewport.setPointerCapture() causes some browsers to retarget the synthesized
+   click event to the capturing element, so a click bound on the SVG or on individual
+   shapes never fires reliably for real pointer input. elementFromPoint sidesteps that. */
+function handleTap(clientX, clientY){
   hidePopover();
+  const el = document.elementFromPoint(clientX, clientY);
 
+  if(state.mode==='view'){
+    const fieldEl = el && el.closest && el.closest('.field-shape');
+    if(fieldEl){ onFieldTap(fieldEl.dataset.id); return; }
+    const pinEl = el && el.closest && el.closest('.pin-hit');
+    if(pinEl){
+      const p = state.pins.find(x=>x.id===pinEl.dataset.id);
+      if(p) showPinPopover(p, clientX, clientY);
+      return;
+    }
+    const drawEl = el && el.closest && el.closest('.drawing-hit');
+    if(drawEl){
+      const d = state.drawings.find(x=>x.id===drawEl.dataset.id);
+      if(d) showDrawingPopover(d, clientX, clientY);
+      return;
+    }
+    const waterEl = el && el.closest && el.closest('.water-body');
+    if(waterEl){ onWaterTap(waterEl.dataset.id, clientX, clientY); return; }
+    closeSheet();
+    return;
+  }
+
+  const w = screenToWorld(clientX, clientY);
   if(state.mode==='pin-new'){
-    showNewPinPopover(w.x, w.y, e.clientX, e.clientY);
+    showNewPinPopover(w.x, w.y, clientX, clientY);
     setMode('view');
     return;
   }
   if(state.mode==='draw-dot'){
-    addDrawing('dot',[[w.x,w.y]]);
+    addDrawing('dot',[{x:w.x,y:w.y}]);
     return;
   }
-  closeSheet();
 }
 
 /* ---------- arrow drawing preview ---------- */
@@ -917,7 +943,7 @@ function finishArrow(start,end){
   if(state.arrowPreview){ state.arrowPreview.remove(); state.arrowPreview=null; }
   const d = Math.hypot(end.x-start.x, end.y-start.y);
   if(d < 4/state.scale) return;
-  addDrawing('arrow',[[start.x,start.y],[end.x,end.y]]);
+  addDrawing('arrow',[{x:start.x,y:start.y},{x:end.x,y:end.y}]);
 }
 
 /* ---------- data store (local) ---------- */
@@ -979,6 +1005,7 @@ function renderPins(){
     const meta = PIN_ICON_TYPES[p.type] || PIN_ICON_TYPES.opmerking;
     const grp = document.createElementNS(svgns,'g');
     grp.setAttribute('class','pin-hit');
+    grp.dataset.id = p.id;
     grp.setAttribute('transform','translate('+p.x+','+p.y+')');
     const R = 15;
     const circle = document.createElementNS(svgns,'circle');
@@ -993,7 +1020,6 @@ function renderPins(){
     use.setAttribute('fill','#fff'); use.setAttribute('stroke','#fff'); use.setAttribute('stroke-width',0.3);
     grp.appendChild(use);
     grp.style.cursor='pointer';
-    grp.addEventListener('click',(ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); showPinPopover(p, ev.clientX, ev.clientY); });
     g.appendChild(grp);
   });
 }
@@ -1005,19 +1031,20 @@ function renderDrawings(){
   g.innerHTML='';
   state.drawings.forEach(d=>{
     if(d.type==='dot'){
-      const [ [x,y] ] = d.points;
+      const [ {x,y} ] = d.points;
       const c = document.createElementNS(svgns,'circle');
       c.setAttribute('cx',x); c.setAttribute('cy',y); c.setAttribute('r',9);
       c.setAttribute('fill',d.color||'#dc2626'); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width',2);
       c.setAttribute('vector-effect','non-scaling-stroke');
       c.setAttribute('class','drawing-hit');
+      c.dataset.id = d.id;
       c.style.cursor='pointer';
-      c.addEventListener('click',(ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); showDrawingPopover(d, ev.clientX, ev.clientY); });
       g.appendChild(c);
     } else if(d.type==='arrow'){
-      const [[x1,y1],[x2,y2]] = d.points;
+      const [{x:x1,y:y1},{x:x2,y:y2}] = d.points;
       const grp = document.createElementNS(svgns,'g');
       grp.setAttribute('class','drawing-hit');
+      grp.dataset.id = d.id;
       grp.style.cursor='pointer';
       const line = document.createElementNS(svgns,'line');
       line.setAttribute('x1',x1); line.setAttribute('y1',y1); line.setAttribute('x2',x2); line.setAttribute('y2',y2);
@@ -1037,7 +1064,6 @@ function renderDrawings(){
       hit.setAttribute('stroke','transparent'); hit.setAttribute('stroke-width',22);
       hit.setAttribute('vector-effect','non-scaling-stroke');
       grp.appendChild(hit);
-      grp.addEventListener('click',(ev)=>{ if(state.mode!=='view') return; ev.stopPropagation(); showDrawingPopover(d, ev.clientX, ev.clientY); });
       g.appendChild(grp);
     }
   });
