@@ -139,6 +139,9 @@
     overflow:hidden;
     touch-action:none;
     cursor:grab;
+    user-select:none;
+    -webkit-user-select:none;
+    -webkit-touch-callout:none;
   }
   #viewport.grabbing{cursor:grabbing}
   #world{
@@ -806,13 +809,7 @@ viewport.addEventListener('pointerdown', (e)=>{
   dragMoved = false;
   downPos = {x:e.clientX, y:e.clientY};
   if(pointers.size===1){
-    if(state.mode==='draw-arrow'){
-      const w = screenToWorld(e.clientX,e.clientY);
-      state.arrowStart = w;
-      startArrowPreview(w);
-    } else {
-      viewport.classList.add('grabbing');
-    }
+    viewport.classList.add('grabbing');
   }
 });
 
@@ -838,12 +835,6 @@ viewport.addEventListener('pointermove', (e)=>{
   const dx = e.clientX-prev.x, dy = e.clientY-prev.y;
   if(downPos && Math.hypot(e.clientX-downPos.x, e.clientY-downPos.y) > 12) dragMoved = true;
 
-  if(state.mode==='draw-arrow' && state.arrowStart){
-    const w = screenToWorld(e.clientX,e.clientY);
-    updateArrowPreview(state.arrowStart, w);
-    return;
-  }
-
   state.tx += dx; state.ty += dy;
   applyTransform();
 });
@@ -853,12 +844,6 @@ function endPointer(e){
   pointers.delete(e.pointerId);
   lastDist=null;
   viewport.classList.remove('grabbing');
-  if(state.mode==='draw-arrow' && state.arrowStart){
-    const w = screenToWorld(e.clientX,e.clientY);
-    finishArrow(state.arrowStart, w);
-    state.arrowStart = null;
-    return;
-  }
   if(e.type==='pointerup' && wasSingle && pointers.size===0 && !dragMoved){
     handleTap(e.clientX, e.clientY);
   }
@@ -917,30 +902,37 @@ function handleTap(clientX, clientY){
     addDrawing('dot',[{x:w.x,y:w.y}]);
     return;
   }
+  if(state.mode==='draw-arrow'){
+    if(!state.arrowStart){
+      state.arrowStart = w;
+      startArrowPoint(w);
+    } else {
+      finishArrow(state.arrowStart, w);
+    }
+    return;
+  }
 }
 
-/* ---------- arrow drawing preview ---------- */
-function startArrowPreview(start){
+/* ---------- arrow drawing: tap start, tap end (no drag — works identically
+   on mouse and touch, and avoids native text selection kicking in on drag) ---------- */
+function startArrowPoint(start){
   const svgns='http://www.w3.org/2000/svg';
   const g = document.getElementById('drawG');
-  const line = document.createElementNS(svgns,'line');
-  line.setAttribute('x1',start.x); line.setAttribute('y1',start.y);
-  line.setAttribute('x2',start.x); line.setAttribute('y2',start.y);
-  line.setAttribute('stroke', state.drawColor);
-  line.setAttribute('stroke-width', 4);
-  line.setAttribute('stroke-linecap','round');
-  line.setAttribute('opacity','0.6');
-  line.setAttribute('vector-effect','non-scaling-stroke');
-  g.appendChild(line);
-  state.arrowPreview = line;
+  const marker = document.createElementNS(svgns,'circle');
+  marker.setAttribute('cx',start.x); marker.setAttribute('cy',start.y); marker.setAttribute('r',9);
+  marker.setAttribute('fill', state.drawColor);
+  marker.setAttribute('opacity','0.6');
+  marker.setAttribute('vector-effect','non-scaling-stroke');
+  g.appendChild(marker);
+  state.arrowPreview = marker;
+  toast('Tik nu op het eindpunt van de pijl');
 }
-function updateArrowPreview(start,end){
-  if(!state.arrowPreview) return;
-  state.arrowPreview.setAttribute('x2',end.x);
-  state.arrowPreview.setAttribute('y2',end.y);
+function cancelArrowPoint(){
+  if(state.arrowPreview){ state.arrowPreview.remove(); state.arrowPreview=null; }
+  state.arrowStart = null;
 }
 function finishArrow(start,end){
-  if(state.arrowPreview){ state.arrowPreview.remove(); state.arrowPreview=null; }
+  cancelArrowPoint();
   const d = Math.hypot(end.x-start.x, end.y-start.y);
   if(d < 4/state.scale) return;
   addDrawing('arrow',[{x:start.x,y:start.y},{x:end.x,y:end.y}]);
@@ -1242,12 +1234,12 @@ function openDrawToolbar(){
 }
 $('#fabDraw').onclick = ()=>{
   const tb = $('#drawToolbar');
-  if(tb.classList.contains('show')){ setMode('view'); tb.classList.remove('show'); return; }
+  if(tb.classList.contains('show')){ cancelArrowPoint(); setMode('view'); tb.classList.remove('show'); return; }
   openDrawToolbar();
 };
-$('#optArrow').onclick = ()=>{ setMode('draw-arrow'); syncDrawToolbarUI(); };
-$('#optDot').onclick = ()=>{ setMode('draw-dot'); syncDrawToolbarUI(); };
-$('#closeDraw').onclick = ()=>{ setMode('view'); $('#drawToolbar').classList.remove('show'); };
+$('#optArrow').onclick = ()=>{ cancelArrowPoint(); setMode('draw-arrow'); syncDrawToolbarUI(); };
+$('#optDot').onclick = ()=>{ cancelArrowPoint(); setMode('draw-dot'); syncDrawToolbarUI(); };
+$('#closeDraw').onclick = ()=>{ cancelArrowPoint(); setMode('view'); $('#drawToolbar').classList.remove('show'); };
 function syncDrawToolbarUI(){
   $('#optArrow').classList.toggle('active', state.mode==='draw-arrow');
   $('#optDot').classList.toggle('active', state.mode==='draw-dot');
