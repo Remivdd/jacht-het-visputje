@@ -418,6 +418,40 @@
   .action-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
   #countersSection{margin-top:12px}
   #countersSection[hidden]{display:none}
+  #sheet.locked .stepper button{visibility:hidden}
+  #sheet:not(.locked) .lock-hint{display:none}
+  .lock-hint{font-size:12px;color:var(--ink-dim);padding:2px 2px 0}
+  #lockModal{
+    position:absolute;inset:0;z-index:45;
+    background:rgba(0,0,0,.55);
+    display:flex;align-items:center;justify-content:center;
+    padding:16px;
+  }
+  #lockModal[hidden]{display:none}
+  .lock-card{
+    width:100%;max-width:300px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+    box-shadow:var(--shadow);
+    padding:18px;
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .lock-title{font-family:var(--font-display);font-weight:700;font-size:22px;text-transform:uppercase;color:var(--accent-strong)}
+  #lockInput{
+    width:100%;
+    border:1px solid var(--line);
+    background:var(--surface-2);
+    color:var(--ink);
+    border-radius:10px;
+    padding:12px;
+    font-family:var(--font-mono);
+    font-size:22px;
+    letter-spacing:.3em;
+    text-align:center;
+  }
+  #lockError{min-height:18px;font-size:13px;font-weight:600;color:var(--danger);text-align:center}
+  .lock-actions{display:flex;gap:8px}
 
   /* legend / info panel */
   #infoToggle{
@@ -487,7 +521,22 @@
 
   <div class="popover" id="popover"></div>
 
+  <div id="lockModal" hidden>
+    <div class="lock-card">
+      <div class="lock-title">Slotje ontgrendelen</div>
+      <input id="lockInput" type="password" inputmode="numeric" autocomplete="off" maxlength="8" placeholder="Code">
+      <div id="lockError"></div>
+      <div class="lock-actions">
+        <button class="action-btn" id="lockCancel">Annuleer</button>
+        <button class="action-btn active" id="lockOk">Ontgrendel</button>
+      </div>
+    </div>
+  </div>
+
   <div class="fab-col">
+    <button class="fab" id="fabLock" title="Bewerken ontgrendelen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path id="lockShackle" d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+    </button>
     <button class="fab" id="fabLoc" title="Mijn locatie">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
     </button>
@@ -515,7 +564,7 @@
 
   <div class="toast" id="toast"></div>
 
-  <div id="sheet">
+  <div id="sheet" class="locked">
     <div class="sheet-head">
       <div>
         <div class="sheet-title" id="sheetTitle">Veld</div>
@@ -531,6 +580,7 @@
       <button class="action-btn" id="sheetAnimalsBtn">&#128007; Telling</button>
     </div>
     <div class="counters" id="countersSection" hidden>
+      <div class="lock-hint">&#128274; Ontgrendel het slotje om de telling aan te passen</div>
       <div class="counter-row">
         <div class="counter-label"><svg class="counter-icon" id="icoHaas" viewBox="0 0 24 24"></svg> Hazen</div>
         <div class="stepper" data-field="hazen"><button data-d="-1">&minus;</button><span class="val">0</span><button data-d="1">+</button></div>
@@ -597,6 +647,7 @@ const state = {
   pins:[], drawings:[],
   waterNotes:{},
   lastGeo:null,
+  unlocked:false,
   watchId:null,
   arrowPreview:null,
   arrowStart:null,
@@ -982,22 +1033,25 @@ function initStore(){
 }
 
 async function addPin(type,desc,x,y){
+  if(!state.unlocked) return;
   try{
     await addDoc(collection(db,'pins'), {type, desc, x, y, createdAt: new Date().toISOString()});
     toast('Pin geplaatst');
   }catch(e){ console.warn(e); toast('Opslaan mislukt'); }
 }
 async function updatePin(id, type, desc){
+  if(!state.unlocked) return;
   try{ await updateDoc(doc(db,'pins',id), {type, desc}); }
   catch(e){ console.warn(e); toast('Opslaan mislukt'); }
 }
 async function addDrawing(type, points){
+  if(!state.unlocked) return;
   try{
     await addDoc(collection(db,'drawings'), {type, points, color: state.drawColor, createdAt: new Date().toISOString()});
   }catch(e){ console.warn(e); toast('Opslaan mislukt'); }
 }
-async function deletePin(id){ hidePopover(); try{ await deleteDoc(doc(db,'pins',id)); }catch(e){ console.warn(e); } }
-async function deleteDrawing(id){ hidePopover(); try{ await deleteDoc(doc(db,'drawings',id)); }catch(e){ console.warn(e); } }
+async function deletePin(id){ hidePopover(); if(!state.unlocked) return; try{ await deleteDoc(doc(db,'pins',id)); }catch(e){ console.warn(e); } }
+async function deleteDrawing(id){ hidePopover(); if(!state.unlocked) return; try{ await deleteDoc(doc(db,'drawings',id)); }catch(e){ console.warn(e); } }
 
 /* ---------- render pins & drawings ---------- */
 function renderPins(){
@@ -1109,12 +1163,13 @@ function showPinPopover(p, cx, cy){
   const meta = PIN_ICON_TYPES[p.type] || PIN_ICON_TYPES.opmerking;
   pop.innerHTML = '<div class="lbl">'+meta.label+'</div>'+
     '<div id="pinDescView" style="white-space:pre-wrap">'+(p.desc? p.desc.replace(/</g,'&lt;') : '<span style="color:var(--ink-dim)">Geen beschrijving</span>')+'</div>'+
-    '<div style="display:flex;gap:6px">'+
+    (state.unlocked ? '<div style="display:flex;gap:6px">'+
     '<button class="save" id="pinEditBtn">Bewerken</button>'+
     '<button class="del" id="pinDelBtn">Verwijder</button>'+
-    '</div>';
-  pop.querySelector('#pinDelBtn').onclick = ()=> deletePin(p.id);
-  pop.querySelector('#pinEditBtn').onclick = ()=>{
+    '</div>' : '');
+  const delBtn = pop.querySelector('#pinDelBtn'), editBtn = pop.querySelector('#pinEditBtn');
+  if(delBtn) delBtn.onclick = ()=> deletePin(p.id);
+  if(editBtn) editBtn.onclick = ()=>{
     pop.innerHTML = '<div class="lbl">Pin bewerken</div>'+
       iconRowHtml(p.type)+
       '<textarea class="notes-field" id="editPinDesc">'+(p.desc||'').replace(/</g,'&lt;')+'</textarea>'+
@@ -1130,8 +1185,9 @@ function showPinPopover(p, cx, cy){
 function showDrawingPopover(d, cx, cy){
   const pop = $('#popover');
   const label = d.type==='arrow' ? 'Pijl' : 'Bolletje';
-  pop.innerHTML = '<div class="lbl">'+label+'</div><button class="del">Verwijder</button>';
-  pop.querySelector('.del').onclick = ()=> deleteDrawing(d.id);
+  pop.innerHTML = '<div class="lbl">'+label+'</div>'+(state.unlocked ? '<button class="del">Verwijder</button>' : '');
+  const delDraw = pop.querySelector('.del');
+  if(delDraw) delDraw.onclick = ()=> deleteDrawing(d.id);
   positionPopover(pop, cx, cy);
 }
 function positionPopover(pop, cx, cy, w){
@@ -1211,14 +1267,14 @@ $('#sheetAnimalsBtn').onclick = ()=>{
   $('#countersSection').hidden = false;
   $('#sheetAnimalsBtn').classList.add('active');
 };
-$('#sheetDrawBtn').onclick = ()=>{
+$('#sheetDrawBtn').onclick = ()=> requireUnlock(()=>{
   closeSheet();
   openDrawToolbar();
-};
+});
 
 document.querySelectorAll('.stepper button').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
-    if(!state.selectedFieldId) return;
+    if(!state.selectedFieldId || !state.unlocked) return;
     const field = btn.parentElement.dataset.field;
     const d = Number(btn.dataset.d);
     const cur = state.fieldsData[state.selectedFieldId] || {hazen:0,patrijzen:0,fazanten:0};
@@ -1230,12 +1286,57 @@ document.querySelectorAll('.stepper button').forEach(btn=>{
   });
 });
 
+/* ---------- lock: editing (draw / pins / counts) needs the code; viewing and field notes stay open ---------- */
+const LOCK_CODE = '1379';
+let lockThen = null;
+function setUnlocked(v){
+  state.unlocked = v;
+  $('#fabLock').classList.toggle('on', v);
+  $('#fabLock').title = v ? 'Slotje sluiten' : 'Bewerken ontgrendelen';
+  $('#lockShackle').setAttribute('d', v ? 'M8 11V8a4 4 0 0 1 7.6-1.7' : 'M8 11V8a4 4 0 0 1 8 0v3');
+  $('#sheet').classList.toggle('locked', !v);
+  if(!v){
+    cancelArrowPoint(); setMode('view');
+    $('#drawToolbar').classList.remove('show');
+    hidePopover();
+    toast('Vergrendeld');
+  } else {
+    toast('Ontgrendeld — sluit het slotje als je klaar bent');
+  }
+}
+function openLockModal(then){
+  lockThen = then || null;
+  $('#lockError').textContent = '';
+  $('#lockInput').value = '';
+  $('#lockModal').hidden = false;
+  setTimeout(()=> $('#lockInput').focus(), 50);
+}
+function closeLockModal(){ $('#lockModal').hidden = true; lockThen = null; }
+function requireUnlock(then){ if(state.unlocked) then(); else openLockModal(then); }
+function tryUnlock(){
+  if($('#lockInput').value === LOCK_CODE){
+    const then = lockThen;
+    closeLockModal();
+    setUnlocked(true);
+    if(then) then();
+  } else {
+    $('#lockError').textContent = 'Foute code';
+    $('#lockInput').value = '';
+  }
+}
+$('#lockOk').onclick = tryUnlock;
+$('#lockCancel').onclick = closeLockModal;
+$('#lockInput').addEventListener('keydown', e=>{ if(e.key==='Enter') tryUnlock(); });
+$('#fabLock').onclick = ()=> state.unlocked ? setUnlocked(false) : openLockModal(null);
+
 /* ---------- pins (comment markers) ---------- */
 $('#fabPin').onclick = ()=>{
   if(state.mode.startsWith('pin-')){ setMode('view'); return; }
-  $('#drawToolbar').classList.remove('show');
-  setMode('pin-new');
-  toast('Tik op de kaart om een pin te plaatsen');
+  requireUnlock(()=>{
+    $('#drawToolbar').classList.remove('show');
+    setMode('pin-new');
+    toast('Tik op de kaart om een pin te plaatsen');
+  });
 };
 
 /* ---------- draw toolbar ---------- */
@@ -1247,7 +1348,7 @@ function openDrawToolbar(){
 $('#fabDraw').onclick = ()=>{
   const tb = $('#drawToolbar');
   if(tb.classList.contains('show')){ cancelArrowPoint(); setMode('view'); tb.classList.remove('show'); return; }
-  openDrawToolbar();
+  requireUnlock(openDrawToolbar);
 };
 $('#optArrow').onclick = ()=>{ cancelArrowPoint(); setMode('draw-arrow'); syncDrawToolbarUI(); };
 $('#optDot').onclick = ()=>{ cancelArrowPoint(); setMode('draw-dot'); syncDrawToolbarUI(); };
